@@ -1,0 +1,88 @@
+{
+	"name": "DF_Silver_Patients",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_Bronze_Patients",
+						"type": "DatasetReference"
+					},
+					"name": "Pacientes"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Patients",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "Genero"
+				},
+				{
+					"name": "FechaNacimiento"
+				},
+				{
+					"name": "Aseguradoras"
+				},
+				{
+					"name": "Email"
+				},
+				{
+					"name": "Telefono"
+				},
+				{
+					"name": "IDPaciente"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          patient_id as string,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as string,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> Pacientes",
+				"Pacientes derive(gender = iif(lower(trim(gender)) == 'm' || lower(trim(gender)) == 'male', 'Masculino', iif(lower(trim(gender)) == 'f' || lower(trim(gender)) == 'female', 'Femenino', toString(null())))) ~> Genero",
+				"Genero derive(date_of_birth = coalesce(toDate(trim(date_of_birth),'yyyy-MM-dd'),toDate(trim(date_of_birth),'dd-MMM-yyyy'),toDate(trim(date_of_birth),'MM/dd/yyyy'),toDate(trim(date_of_birth),'MMMM dd, yyyy'),toDate(concat(left(date_of_birth,6),iif(toInteger(right(date_of_birth,2)) <= 26,'20','19'),right(date_of_birth,2)),'MM-dd-yyyy'))) ~> FechaNacimiento",
+				"FechaNacimiento derive(insurance_provider = case(isNull(insurance_provider) || trim(insurance_provider) == '', toString(null()), startsWith(lower(trim(insurance_provider)), 'aetn'), 'Aetna', startsWith(lower(trim(insurance_provider)), 'cigna'), 'Cigna', startsWith(lower(trim(insurance_provider)), 'blue'), 'BlueCross', startsWith(lower(trim(insurance_provider)), 'medicaid'), 'Medicaid', startsWith(replace(lower(trim(insurance_provider)), '-', ''), 'medicare'), 'Medicare', startsWith(replace(lower(trim(insurance_provider)), ' ', ''), 'united') || lower(trim(insurance_provider)) == 'uhc', 'UnitedHealth', startsWith(lower(trim(insurance_provider)), 'self'), 'Self-Pay', trim(insurance_provider))) ~> Aseguradoras",
+				"Aseguradoras derive(email = iif(isNull(email) || trim(email) == '', toString(null()), replace(replace(replace(lower(trim(email)), ' at ', '@'), ',com', '.com'), 'gmial.com', 'gmail.com'))) ~> Email",
+				"Email derive(phone = iif(isNull(phone) || trim(phone) == '' || lower(trim(phone)) == 'unknown' || lower(trim(phone)) == 'n/a', toString(null()), regexReplace(trim(phone), '[^0-9+]', ''))) ~> Telefono",
+				"Telefono derive(patient_id = toInteger(trim(patient_id))) ~> IDPaciente",
+				"IDPaciente sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          patient_id as integer,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as date,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}
