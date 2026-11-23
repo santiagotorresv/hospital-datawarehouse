@@ -3,11 +3,84 @@
 	"properties": {
 		"type": "MappingDataFlow",
 		"typeProperties": {
-			"sources": [],
-			"sinks": [],
-			"transformations": [],
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Patients",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_Gold_DimPaciente",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "TransformacionPacientes"
+				},
+				{
+					"name": "SeleccionarColumnasPaciente"
+				}
+			],
 			"scriptLines": [
-				""
+				"source(output(",
+				"          patient_id as integer,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as date,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> source1",
+				"source1 derive(rango_etario = case(isNull(date_of_birth),toString(null()),floor(monthsBetween(currentDate(),date_of_birth)/12)<=18,'0-18',floor(monthsBetween(currentDate(),date_of_birth)/12)<=35,'19-35',floor(monthsBetween(currentDate(),date_of_birth)/12)<=60,'36-60','60+')\r",
+				",",
+				"          proveedor_seguro = iif(isNull(insurance_provider) || trim(insurance_provider) == '', 'Unknown', trim(insurance_provider))\r",
+				") ~> TransformacionPacientes",
+				"TransformacionPacientes select(mapColumn(",
+				"          patient_id_bk = patient_id,",
+				"          nombre_completo = full_name,",
+				"          genero = gender,",
+				"          fecha_nacimiento = date_of_birth,",
+				"          correo_electronico = email,",
+				"          direccion = address,",
+				"          rango_etario,",
+				"          proveedor_seguro",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SeleccionarColumnasPaciente",
+				"SeleccionarColumnasPaciente sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          paciente_key as integer,",
+				"          patient_id_bk as integer,",
+				"          nombre_completo as string,",
+				"          genero as string,",
+				"          fecha_nacimiento as date,",
+				"          rango_etario as string,",
+				"          correo_electronico as string,",
+				"          direccion as string,",
+				"          proveedor_seguro as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
 			]
 		}
 	}
