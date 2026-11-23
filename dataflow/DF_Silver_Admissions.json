@@ -1,0 +1,109 @@
+{
+	"name": "DF_Silver_Admissions",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_Bronze_Admissions",
+						"type": "DatasetReference"
+					},
+					"name": "Admisiones"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Patients",
+						"type": "DatasetReference"
+					},
+					"name": "DSSilverPatients"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Admissions",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "ConversionID"
+				},
+				{
+					"name": "LimpiezaFechas"
+				},
+				{
+					"name": "Departamentos"
+				},
+				{
+					"name": "FiltrarFechasValidas"
+				},
+				{
+					"name": "ValidarPacientes"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          admission_id as string,",
+				"          patient_id as string,",
+				"          admission_date as string,",
+				"          discharge_date as string,",
+				"          department as string,",
+				"          attending_doctor_id as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> Admisiones",
+				"source(output(",
+				"          patient_id as integer,",
+				"          full_name as string,",
+				"          gender as string,",
+				"          date_of_birth as date,",
+				"          phone as string,",
+				"          email as string,",
+				"          address as string,",
+				"          insurance_provider as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> DSSilverPatients",
+				"Admisiones derive(admission_id = toInteger(trim(admission_id)),",
+				"          patient_id = toInteger(trim(patient_id)),",
+				"          attending_doctor_id = toInteger(trim(attending_doctor_id))) ~> ConversionID",
+				"ConversionID derive(admission_date = iif(length(trim(admission_date)) == 8, toDate(concat(left(trim(admission_date),6),'20',right(trim(admission_date),2)),'MM-dd-yyyy'), coalesce(toDate(trim(admission_date),'yyyy-MM-dd'),toDate(trim(admission_date),'dd-MMM-yyyy'),toDate(trim(admission_date),'MM/dd/yyyy'),toDate(trim(admission_date),'MMMM dd, yyyy')))\r",
+				",",
+				"          discharge_date = iif(length(trim(discharge_date)) == 8, toDate(concat(left(trim(discharge_date),6),'20',right(trim(discharge_date),2)),'MM-dd-yyyy'), coalesce(toDate(trim(discharge_date),'yyyy-MM-dd'),toDate(trim(discharge_date),'dd-MMM-yyyy'),toDate(trim(discharge_date),'MM/dd/yyyy'),toDate(trim(discharge_date),'MMMM dd, yyyy')))\r",
+				") ~> LimpiezaFechas",
+				"LimpiezaFechas derive(department = case(startsWith(lower(trim(department)), 'card'), 'Cardiology', startsWith(lower(trim(department)), 'emerg') || lower(trim(department)) == 'er', 'Emergency', startsWith(lower(trim(department)), 'gen'), 'General Surgery', startsWith(lower(trim(department)), 'neuro') || startsWith(lower(trim(department)), 'nuer'), 'Neurology', startsWith(lower(trim(department)), 'onco'), 'Oncology', startsWith(lower(trim(department)), 'ortho'), 'Orthopedics', startsWith(lower(trim(department)), 'ped') || startsWith(lower(trim(department)), 'paed'), 'Pediatrics', trim(department))\r",
+				"  ) ~> Departamentos",
+				"Departamentos filter(!isNull(admission_date) && (isNull(discharge_date) || discharge_date >= admission_date)) ~> FiltrarFechasValidas",
+				"FiltrarFechasValidas, DSSilverPatients exists(ConversionID@patient_id == DSSilverPatients@patient_id,",
+				"     negate:false,",
+				"     broadcast: 'auto')~> ValidarPacientes",
+				"ValidarPacientes sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          admission_id as integer,",
+				"          patient_id as integer,",
+				"          admission_date as date,",
+				"          discharge_date as date,",
+				"          department as string,",
+				"          attending_doctor_id as integer",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}
