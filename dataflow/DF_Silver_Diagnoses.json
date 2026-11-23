@@ -1,0 +1,103 @@
+{
+	"name": "DF_Silver_Diagnoses",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_Bronze_Diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "Diagnosticos"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Admissions",
+						"type": "DatasetReference"
+					},
+					"name": "DSSilverAdmissions"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Diagnoses",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "ConversionID"
+				},
+				{
+					"name": "NormalizacionCodigosICD"
+				},
+				{
+					"name": "CorreccionPuntosICD"
+				},
+				{
+					"name": "NormalizarSeveridad"
+				},
+				{
+					"name": "ValidarAdmisiones"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          diagnosis_id as string,",
+				"          admission_id as string,",
+				"          icd_code as string,",
+				"          diagnosis_description as string,",
+				"          severity as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> Diagnosticos",
+				"source(output(",
+				"          admission_id as integer,",
+				"          patient_id as integer,",
+				"          admission_date as date,",
+				"          discharge_date as date,",
+				"          department as string,",
+				"          attending_doctor_id as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> DSSilverAdmissions",
+				"Diagnosticos derive(diagnosis_id = toInteger(trim(diagnosis_id)),",
+				"          admission_id = toInteger(trim(admission_id))) ~> ConversionID",
+				"ConversionID derive(icd_code = upper(trim(regexReplace(replace(icd_code, '-', '.'), ' *, *', ', ')))\r",
+				") ~> NormalizacionCodigosICD",
+				"NormalizacionCodigosICD derive(icd_code = regexReplace(icd_code, '([A-Z][0-9]{2})([0-9A-Z]+)', '$1.$2')\r",
+				") ~> CorreccionPuntosICD",
+				"CorreccionPuntosICD derive(severity = case(isNull(severity) || trim(severity) == '', toString(null()), lower(trim(severity)) == 'mild', 'Mild', lower(trim(severity)) == 'moderate', 'Moderate', lower(trim(severity)) == 'severe', 'Severe', lower(trim(severity)) == 'critical', 'Critical', trim(severity))\r",
+				") ~> NormalizarSeveridad",
+				"NormalizarSeveridad, DSSilverAdmissions exists(ConversionID@admission_id == DSSilverAdmissions@admission_id,",
+				"     negate:false,",
+				"     broadcast: 'auto')~> ValidarAdmisiones",
+				"ValidarAdmisiones sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          diagnosis_id as integer,",
+				"          admission_id as integer,",
+				"          icd_code as string,",
+				"          diagnosis_description as string,",
+				"          severity as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}
