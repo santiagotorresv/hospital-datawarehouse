@@ -1,0 +1,114 @@
+{
+	"name": "DF_Silver_Billing",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_Bronze_Billing",
+						"type": "DatasetReference"
+					},
+					"name": "source1"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Admissions",
+						"type": "DatasetReference"
+					},
+					"name": "DSSilverAdmissions"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "DS_Silver_Billing",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "ConversionID"
+				},
+				{
+					"name": "NormalizarCargo"
+				},
+				{
+					"name": "LimpiezaImportes"
+				},
+				{
+					"name": "NormalizarEstadoPago"
+				},
+				{
+					"name": "LimpiarFechasPago"
+				},
+				{
+					"name": "FiltroImportesValidos"
+				},
+				{
+					"name": "ValidarAdmisiones"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          billing_id as string,",
+				"          admission_id as string,",
+				"          charge_type as string,",
+				"          amount as string,",
+				"          payment_status as string,",
+				"          payment_date as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> source1",
+				"source(output(",
+				"          admission_id as integer,",
+				"          patient_id as integer,",
+				"          admission_date as date,",
+				"          discharge_date as date,",
+				"          department as string,",
+				"          attending_doctor_id as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> DSSilverAdmissions",
+				"source1 derive(billing_id = toInteger(trim(billing_id)),",
+				"          admission_id = toInteger(trim(admission_id))) ~> ConversionID",
+				"ConversionID derive(charge_type = iif(isNull(charge_type) || trim(charge_type) == '', 'Unknown', trim(charge_type))\r",
+				") ~> NormalizarCargo",
+				"NormalizarCargo derive(amount = iif(isNull(amount) || trim(amount) == '', toDecimal(null(), 12, 2), toDecimal(regexReplace(trim(amount), '[^0-9.-]', ''), 12, 2))\r",
+				") ~> LimpiezaImportes",
+				"LimpiezaImportes derive(payment_status = case(lower(trim(payment_status)) == 'paid', 'Paid', lower(trim(payment_status)) == 'pending', 'Pending', lower(trim(payment_status)) == 'unpaid', 'Unpaid', lower(trim(payment_status)) == 'overdue', 'Overdue', trim(payment_status))\r",
+				") ~> NormalizarEstadoPago",
+				"NormalizarEstadoPago derive(payment_date = iif(isNull(payment_date) || trim(payment_date) == '', toDate(null(), 'yyyy-MM-dd'), iif(length(trim(payment_date)) == 8, toDate(concat(left(trim(payment_date),6),'20',right(trim(payment_date),2)),'MM-dd-yyyy'), coalesce(toDate(trim(payment_date),'yyyy-MM-dd'),toDate(trim(payment_date),'dd-MMM-yyyy'),toDate(trim(payment_date),'MM/dd/yyyy'),toDate(trim(payment_date),'MMMM dd, yyyy'))))) ~> LimpiarFechasPago",
+				"LimpiarFechasPago filter(!isNull(amount)\r",
+				") ~> FiltroImportesValidos",
+				"FiltroImportesValidos, DSSilverAdmissions exists(ConversionID@admission_id == DSSilverAdmissions@admission_id,",
+				"     negate:false,",
+				"     broadcast: 'auto')~> ValidarAdmisiones",
+				"ValidarAdmisiones sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          billing_id as integer,",
+				"          admission_id as integer,",
+				"          charge_type as string,",
+				"          amount as decimal(12,2),",
+				"          payment_status as string,",
+				"          payment_date as date",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}
