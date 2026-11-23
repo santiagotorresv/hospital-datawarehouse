@@ -1,0 +1,30 @@
+{
+	"name": "DS_Gold_DimServicioCargo",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureSQL_Hospital",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "servicio_cargo_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "tipo_cargo",
+				"type": "varchar"
+			},
+			{
+				"name": "estado_pago",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "gold",
+			"table": "dim_servicio_cargo"
+		}
+	}
+}
