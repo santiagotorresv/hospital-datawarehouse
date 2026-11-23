@@ -1,0 +1,58 @@
+{
+	"name": "DS_Origen_FactFacturacion",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureSQL_Hospital",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "billing_id_bk",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "admission_id_bk",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "paciente_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "departamento_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "servicio_cargo_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "fecha_pago_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "monto_facturado",
+				"type": "decimal",
+				"precision": 12,
+				"scale": 2
+			},
+			{
+				"name": "conteo_transacciones",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "gold",
+			"table": "vw_origen_fact_facturacion"
+		}
+	}
+}

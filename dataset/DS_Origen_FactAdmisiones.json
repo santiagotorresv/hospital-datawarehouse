@@ -1,0 +1,62 @@
+{
+	"name": "DS_Origen_FactAdmisiones",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_AzureSQL_Hospital",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "admission_id_bk",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "paciente_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "departamento_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "diagnostico_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "fecha_ingreso_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "fecha_alta_key",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "medico_id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "dias_estancia",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "conteo_admisiones",
+				"type": "int",
+				"precision": 10
+			}
+		],
+		"typeProperties": {
+			"schema": "gold",
+			"table": "vw_origen_fact_admisiones"
+		}
+	}
+}
